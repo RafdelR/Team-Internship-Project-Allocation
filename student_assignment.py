@@ -79,7 +79,7 @@ pref_cols = [f"Pref{i}" for i in range(1, 6)]
 student_order = df["Name"].tolist()
 random.shuffle(student_order)
 
-print("➡️ Starting initial preference assignment...")
+print(" Starting initial preference assignment...")
 for pref in pref_cols:
     for name in student_order:
         if name in assigned_set:
@@ -91,7 +91,7 @@ for pref in pref_cols:
         if can_assign(row, proj, assignments):
             assignments[proj].append(name)
             assigned_set.add(name)
-            print(f"  ✅ {name} assigned to {proj} (Pref {pref[-1]})")
+            print(f" {name} assigned to {proj} (Pref {pref[-1]})")
 
 # -----------------------------
 # STEP 2: Drop undersubscribed projects
