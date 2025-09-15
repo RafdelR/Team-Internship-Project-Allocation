@@ -115,7 +115,7 @@ for p in not_viable:
 # -----------------------------
 # STEP 3: Reassign dropped students
 # -----------------------------
-print("\n➡️ Reassigning students from dropped projects...")
+print("\n Reassigning students from dropped projects...")
 for name in to_reassign:
     row = df[df["Name"] == name].iloc[0]
     placed = False
@@ -286,7 +286,7 @@ fairness_rows.append(
 
 pd.DataFrame(fairness_rows).to_csv(FAIRNESS_FILE, index=False)
 
-print("\n✅ Assignment complete! Results saved.")
+print("\n Assignment complete! Results saved.")
 print(f" {ASSIGNED_FILE}")
 print(f" {SUMMARY_FILE}")
 print(f" {FAIRNESS_FILE}")

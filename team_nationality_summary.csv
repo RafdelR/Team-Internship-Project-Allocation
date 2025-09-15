@@ -1,0 +1,6 @@
+Project,ProjectType,Capacity,TeamSize,RemainingSpots,Nationalities
+Project1,Company,4,4,0,"NL, JP, ES, IN"
+Project2,TUe,4,4,0,"DE, IT, MX, EG"
+Project3,Company,3,3,0,"ES, SE, DE"
+Project4,TUe,4,4,0,"PT, FR, JP, IN"
+Project5,Company,5,5,0,"UK, BR, NL, NL, IT"
