@@ -9,6 +9,7 @@ STUDENTS_FILE = "student_preferences.csv"
 PROJECTS_FILE = "projects.csv"
 ASSIGNED_FILE = "assigned_teams.csv"
 SUMMARY_FILE = "team_nationality_summary.csv"
+FAIRNESS_FILE = "fairness_summary.csv"
 
 SEED = 42
 random.seed(SEED)
@@ -212,22 +213,28 @@ print("\n📊 Fairness Summary")
 pref_counts = Counter(result_df["PreferenceRank"])
 total_students = len(result_df)
 
+fairness_rows = []
 for i in range(1,6):
     count = pref_counts.get(i, 0)
     pct = 100 * count / total_students
     print(f" - Pref{i}: {count} students ({pct:.1f}%)")
+    fairness_rows.append({"Category": f"Pref{i}", "Count": count, "Percentage": pct})
 
 fallback_count = pref_counts.get("Fallback", 0)
 print(f" - Fallback: {fallback_count} students ({100*fallback_count/total_students:.1f}%)")
+fairness_rows.append({"Category": "Fallback", "Count": fallback_count,
+                      "Percentage": 100*fallback_count/total_students})
 
 # Match between CompanyPreference and actual assignment
-match_type = 0
-for _, row in result_df.iterrows():
-    if row["CompanyPreference"] == row["ProjectType"]:
-        match_type += 1
-print(f" - Type match (Company/TUe): {match_type}/{total_students} "
-      f"({100*match_type/total_students:.1f}%)")
+match_type = sum(1 for _, row in result_df.iterrows()
+                 if row["CompanyPreference"] == row["ProjectType"])
+pct_match = 100 * match_type / total_students
+print(f" - Type match (Company/TUe): {match_type}/{total_students} ({pct_match:.1f}%)")
+fairness_rows.append({"Category": "TypeMatch", "Count": match_type, "Percentage": pct_match})
+
+pd.DataFrame(fairness_rows).to_csv(FAIRNESS_FILE, index=False)
 
 print("\n✅ Assignment complete! Results saved.")
 print(f"📂 {ASSIGNED_FILE}")
 print(f"📂 {SUMMARY_FILE}")
+print(f"📂 {FAIRNESS_FILE}")
