@@ -127,7 +127,7 @@ for name in to_reassign:
             continue
         if can_assign(row, proj, assignments):
             assignments[proj].append(name)
-            print(f"  🔄 {name} reassigned to {proj} via Pref {pref[-1]}")
+            print(f" {name} reassigned to {proj} via Pref {pref[-1]}")
             placed = True
             break
 
