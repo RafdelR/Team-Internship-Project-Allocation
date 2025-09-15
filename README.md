@@ -245,31 +245,10 @@ Mina,EG,Project2,Project4,Project8,Project5,Project1,Company
 Jonas,DE,Project3,Project1,Project2,Project6,Project4,TUe
 ```
 
----
-
-## 🗺️ Visual Flow (Mermaid)
-
-```mermaid
-flowchart TD
-  A[Start] --> B[Load CSVs & validate]
-  B --> C{Total capacity ≥ students?}
-  C -- No --> X[Abort with error]
-  C -- Yes --> D[Pref rounds: Pref1→Pref5]
-  D --> E[Drop undersubscribed projects]
-  E --> F[Reassign from dropped projects]
-  F --> G{All students placed?}
-  G -- No --> H[Final balancing (type-aware)]
-  G -- Yes --> I[Save outputs & fairness]
-  H --> I[Save outputs & fairness]
-  I --> Z[End]
-```
-
----
-
 ## ❓ FAQ
 
-**Q: Why not guarantee every project is exactly full?**  
-A: That requires a global optimization model (ILP). This repo prioritizes **simplicity and transparency** with a greedy approach that still avoids ghost teams and honors constraints. You can extend it to ILP later if needed.
+<!-- **Q: Why not guarantee every project is exactly full?**  
+A: That requires a global optimization model (ILP). This repo prioritizes **simplicity and transparency** with a greedy approach that still avoids ghost teams and honors constraints. You can extend it to ILP later if needed. -->
 
 **Q: Can we change the “≤2 per nationality” rule?**  
 A: Yes — see the `can_assign()` function in `assign_students.py`.
@@ -277,7 +256,7 @@ A: Yes — see the `can_assign()` function in `assign_students.py`.
 **Q: Is the randomization fair?**  
 A: Yes — it’s reproducible with a fixed seed so everyone sees the same result when re-running with identical inputs.
 
----
+<!-- ---
 
 ## 🧩 Extending the Script
 
@@ -286,13 +265,13 @@ A: Yes — it’s reproducible with a fixed seed so everyone sees the same resul
 - Switch to **ILP** (e.g., OR‑Tools / PuLP) for guaranteed globally optimal assignments.  
 - Add **CLI flags** for seed, thresholds, and file paths.
 
----
+--- -->
 
-## 🔐 License
+<!-- ## 🔐 License
 
 Choose a license (e.g., MIT) and update this section.
 
----
+--- -->
 
 ## 🧰 Contributing
 
