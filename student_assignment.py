@@ -1,140 +1,145 @@
 import pandas as pd
 import random
-from collections import defaultdict
+from collections import defaultdict, Counter
 
-# ---------------- CONFIG ---------------- #
-GROUP_SIZE = 4
-MAX_SAME_NATIONALITY = 2
-PREF_COLUMNS = ["Pref1","Pref2","Pref3","Pref4","Pref5"]
-ENFORCE_TYPE_IN_PREF_ROUNDS = True  # hard constraint in preference rounds
+# -----------------------------
+# CONFIG
+# -----------------------------
+STUDENTS_FILE = "student_preferences.csv"
+PROJECTS_FILE = "projects.csv"
+ASSIGNED_FILE = "assigned_teams.csv"
+SUMMARY_FILE = "team_nationality_summary.csv"
+
 SEED = 42
 random.seed(SEED)
 
-# ---------------- LOAD DATA ---------------- #
-students = pd.read_csv("student_preferences.csv")
-projects = pd.read_csv("projects.csv")
+# Nationality cap strategy:
+FIXED_NATIONALITY_CAP = 2
 
-proj_type = dict(zip(projects["Project"], projects["Type"]))
-proj_capacity = dict(zip(projects["Project"], projects["Capacity"]))
+# -----------------------------
+# LOAD INPUT FILES
+# -----------------------------
+df = pd.read_csv(STUDENTS_FILE)
+projects_df = pd.read_csv(PROJECTS_FILE)
 
+if any(col not in projects_df.columns for col in ["Project", "Type", "Capacity"]):
+    raise ValueError("projects.csv must have columns: Project, Type, Capacity")
+
+if any(col not in df.columns for col in ["Name", "Nationality", "Pref1", "Pref2", "Pref3", "Pref4", "Pref5", "CompanyPreference"]):
+    raise ValueError("student_preferences.csv must have columns: Name, Nationality, Pref1..Pref5, CompanyPreference")
+
+proj_types = dict(zip(projects_df["Project"], projects_df["Type"]))
+proj_capacity = dict(zip(projects_df["Project"], projects_df["Capacity"]))
+projects = list(proj_types.keys())
+
+if sum(proj_capacity.values()) < len(df):
+    raise ValueError("Total capacity is less than number of students.")
+
+# -----------------------------
+# HELPERS
+# -----------------------------
 assignments = defaultdict(list)
-student_row = {row["Name"]: row for _, row in students.iterrows()}
-student_assigned = {row["Name"]: None for _, row in students.iterrows()}
 
-# ---------------- HELPERS ---------------- #
-def nationality_ok(project, nat):
-    current_nats = [student_row[s]["Nationality"] for s in assignments[project]]
-    return current_nats.count(nat) < MAX_SAME_NATIONALITY
+def nat_cap_for(project: str) -> int:
+    cap = int(proj_capacity[project])
+    if FIXED_NATIONALITY_CAP is not None:
+        return min(cap, int(FIXED_NATIONALITY_CAP))
+    return max(1, cap // 2)
 
-def capacity_ok(project):
-    return len(assignments[project]) < proj_capacity[project]
-
-def type_matches(student, project):
-    return student["CompanyPreference"] == proj_type[project]
-
-def can_assign(student, project, enforce_type: bool):
-    if not capacity_ok(project):
+def can_assign(student_row, project, ignore_nationality=False):
+    if project not in proj_capacity:
         return False
-    if not nationality_ok(project, student["Nationality"]):
+    if len(assignments[project]) >= proj_capacity[project]:
         return False
-    if enforce_type and not type_matches(student, project):
-        return False
-    return True
+    if ignore_nationality:
+        return True
+    current_nats = df[df["Name"].isin(assignments[project])]["Nationality"].tolist()
+    return current_nats.count(student_row["Nationality"]) < nat_cap_for(project)
 
-# ---------------- ASSIGNMENT ---------------- #
-# Shuffle students for fairness, reproducible by seed
-student_names = list(students["Name"])
-random.shuffle(student_names)
+# -----------------------------
+# STEP 1: Preference rounds
+# -----------------------------
+pref_cols = [f"Pref{i}" for i in range(1,6)]
+student_order = df["Name"].tolist()
+random.shuffle(student_order)
+assigned_set = set()
 
-# Step 1: preference-based assignment
-for pref in PREF_COLUMNS:
-    for name in student_names:
-        if student_assigned[name] is not None:
+for pref in pref_cols:
+    for name in student_order:
+        if name in assigned_set:
             continue
-        s = student_row[name]
-        project = s[pref]
-        if can_assign(s, project, enforce_type=ENFORCE_TYPE_IN_PREF_ROUNDS):
-            assignments[project].append(name)
-            student_assigned[name] = project
+        row = df[df["Name"] == name].iloc[0]
+        proj = row[pref]
+        if proj not in proj_capacity:
+            continue
+        if can_assign(row, proj):
+            assignments[proj].append(name)
+            assigned_set.add(name)
 
-# Step 2: type-enforced leftovers
-leftovers = [n for n, p in student_assigned.items() if p is None]
+# -----------------------------
+# STEP 2: Fallback using CompanyPreference
+# -----------------------------
+leftovers = [n for n in df["Name"].tolist() if n not in assigned_set]
+
 for name in leftovers:
-    s = student_row[name]
-    valid_projects = [p for p in projects["Project"]
-                      if can_assign(s, p, enforce_type=True)]
-    if valid_projects:
-        chosen = random.choice(valid_projects)
-        assignments[chosen].append(name)
-        student_assigned[name] = chosen
+    row = df[df["Name"] == name].iloc[0]
+    pref_type = row["CompanyPreference"]
 
-# Step 3: relax type if still unassigned
-leftovers = [n for n, p in student_assigned.items() if p is None]
-for name in leftovers:
-    s = student_row[name]
-    valid_projects = [p for p in projects["Project"]
-                      if can_assign(s, p, enforce_type=False)]
-    if valid_projects:
-        chosen = random.choice(valid_projects)
-        assignments[chosen].append(name)
-        student_assigned[name] = chosen
+    feasible = [p for p in projects if can_assign(row, p)]
+    feasible_typed = [p for p in feasible if proj_types[p] == pref_type] if pref_type else feasible
 
-# Step 4: relax nationality if still unassigned
-leftovers = [n for n, p in student_assigned.items() if p is None]
-for name in leftovers:
-    s = student_row[name]
-    valid_projects = [p for p in projects["Project"] if capacity_ok(p)]
-    if valid_projects:
-        chosen = random.choice(valid_projects)
-        assignments[chosen].append(name)
-        student_assigned[name] = chosen
+    if feasible_typed:
+        choice = random.choice(feasible_typed)
+    elif feasible:
+        choice = random.choice(feasible)
+    else:
+        relax = [p for p in projects if can_assign(row, p, ignore_nationality=True)]
+        if not relax:
+            raise RuntimeError("No available project to place student. Increase capacities or review constraints.")
+        choice = random.choice(relax)
 
-# ---------------- OUTPUT ---------------- #
-records = []
+    assignments[choice].append(name)
+    assigned_set.add(name)
+
+# -----------------------------
+# STEP 3: Save results
+# -----------------------------
+rows = []
 for project, members in assignments.items():
-    for m in members:
-        s = student_row[m]
+    for name in members:
+        st = df[df["Name"] == name].iloc[0]
         rank = None
-        for i, pref in enumerate(PREF_COLUMNS, start=1):
-            if s[pref] == project:
+        for i in range(1,6):
+            if st[f"Pref{i}"] == project:
                 rank = i
                 break
-        records.append({
-            "Student": m,
-            "AssignedProject": project,
-            "ProjectType": proj_type[project],
-            "StudentTypePreference": s["CompanyPreference"],
-            "TypeMatched": s["CompanyPreference"] == proj_type[project],
-            "Nationality": s["Nationality"],
-            "PreferenceRank": rank if rank is not None else 999
+        rows.append({
+            "Project": project,
+            "ProjectType": proj_types[project],
+            "Capacity": proj_capacity[project],
+            "Student": name,
+            "Nationality": st["Nationality"],
+            "CompanyPreference": st["CompanyPreference"],
+            "PreferenceRank": rank if rank is not None else "Fallback"
         })
 
-assigned_df = pd.DataFrame(records)
-assigned_df.sort_values(by=["AssignedProject","PreferenceRank","Student"], inplace=True)
-assigned_df.to_csv("assigned_teams.csv", index=False)
+result_df = pd.DataFrame(rows).sort_values(["Project", "Student"]).reset_index(drop=True)
+result_df.to_csv(ASSIGNED_FILE, index=False)
 
-# Summary outputs
-project_nat_summary = (assigned_df
-    .groupby(["AssignedProject","Nationality"])
-    .size()
-    .reset_index(name="Count"))
+summary = []
+for project, members in assignments.items():
+    nats = df[df["Name"].isin(members)]["Nationality"].tolist()
+    summary.append({
+        "Project": project,
+        "ProjectType": proj_types[project],
+        "Capacity": proj_capacity[project],
+        "TeamSize": len(members),
+        "RemainingSpots": int(proj_capacity[project]) - len(members),
+        "Nationalities": ", ".join(nats)
+    })
+summary_df = pd.DataFrame(summary).sort_values("Project")
+summary_df.to_csv(SUMMARY_FILE, index=False)
 
-project_type_match = (assigned_df
-    .groupby("AssignedProject")["TypeMatched"]
-    .mean()
-    .reset_index(name="TypeMatchRate"))
-
-pref_satisfaction = assigned_df["PreferenceRank"].value_counts().sort_index()
-pref_satisfaction = pref_satisfaction.rename_axis("PreferenceRank").reset_index(name="NumStudents")
-
-# Save summaries into one CSV
-with open("assignment_summary.csv", "w", encoding="utf-8") as f:
-    f.write("# Type match rate by project\n")
-    project_type_match.to_csv(f, index=False)
-    f.write("\n# Nationality distribution by project\n")
-    project_nat_summary.to_csv(f, index=False)
-    f.write("\n# Preference satisfaction distribution\n")
-    pref_satisfaction.to_csv(f, index=False)
-
-print("Assignments saved to assigned_teams.csv")
-print("Summary saved to assignment_summary.csv")
+print("✅ Assignment complete!")
+print(f"Saved {ASSIGNED_FILE}")
+print(f"Saved {SUMMARY_FILE}")
