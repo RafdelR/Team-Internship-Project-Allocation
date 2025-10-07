@@ -10,6 +10,7 @@ PROJECTS_FILE = "projects.csv"
 ASSIGNED_FILE = "assigned_teams.csv"
 SUMMARY_FILE = "team_nationality_summary.csv"
 FAIRNESS_FILE = "fairness_summary.csv"
+UNASSIGNED_FILE = "unassigned_students.csv"
 
 SEED = 42
 random.seed(SEED)
@@ -39,9 +40,7 @@ required_student_cols = {
 required_project_cols = {"Project", "Type", "Capacity"}
 
 if not required_student_cols.issubset(df.columns):
-    raise ValueError(
-        f"student_preferences.csv must have columns: {required_student_cols}"
-    )
+    raise ValueError(f"student_preferences.csv must have columns: {required_student_cols}")
 
 if not required_project_cols.issubset(projects_df.columns):
     raise ValueError(f"projects.csv must have columns: {required_project_cols}")
@@ -52,10 +51,9 @@ projects = list(proj_types.keys())
 
 if sum(proj_capacity.values()) < len(df):
     raise ValueError(
-        f" Total capacity ({sum(proj_capacity.values())}) "
+        f"Total capacity ({sum(proj_capacity.values())}) "
         f"is less than number of students ({len(df)}). Increase project capacities."
     )
-
 
 # -----------------------------
 # HELPERS
@@ -69,17 +67,17 @@ def can_assign(student_row, project, assignments):
     current_nats = df[df["Name"].isin(assignments[project])]["Nationality"].tolist()
     return current_nats.count(student_row["Nationality"]) < 2  # ≤ 2 per nationality
 
-
 # -----------------------------
 # STEP 1: Initial preference assignment
 # -----------------------------
 assignments = defaultdict(list)
 assigned_set = set()
+unassigned_students = []
 pref_cols = [f"Pref{i}" for i in range(1, 6)]
 student_order = df["Name"].tolist()
 random.shuffle(student_order)
 
-print(" Starting initial preference assignment...")
+print("➡️ Starting initial preference assignment...")
 for pref in pref_cols:
     for name in student_order:
         if name in assigned_set:
@@ -91,21 +89,19 @@ for pref in pref_cols:
         if can_assign(row, proj, assignments):
             assignments[proj].append(name)
             assigned_set.add(name)
-            print(f" {name} assigned to {proj} (Pref {pref[-1]})")
+            print(f"  ✅ {name} assigned to {proj} (Pref {pref[-1]})")
 
 # -----------------------------
 # STEP 2: Drop undersubscribed projects
 # -----------------------------
-not_viable = [
-    p for p, members in assignments.items() if len(members) < (proj_capacity[p] // 2)
-]
+not_viable = [p for p, members in assignments.items() if len(members) < (proj_capacity[p] // 2)]
 
 if not_viable:
-    print("\n Dropping undersubscribed projects:")
+    print("\n⚠️ Dropping undersubscribed projects:")
     for p in not_viable:
         print(f"   - {p}: {len(assignments[p])}/{proj_capacity[p]} students")
 else:
-    print("\n All projects have enough students to be viable.")
+    print("\n✅ All projects have enough students to be viable.")
 
 to_reassign = []
 for p in not_viable:
@@ -115,7 +111,7 @@ for p in not_viable:
 # -----------------------------
 # STEP 3: Reassign dropped students
 # -----------------------------
-print("\n Reassigning students from dropped projects...")
+print("\n➡️ Reassigning students from dropped projects...")
 for name in to_reassign:
     row = df[df["Name"] == name].iloc[0]
     placed = False
@@ -127,7 +123,7 @@ for name in to_reassign:
             continue
         if can_assign(row, proj, assignments):
             assignments[proj].append(name)
-            print(f" {name} reassigned to {proj} via Pref {pref[-1]}")
+            print(f"  🔄 {name} reassigned to {proj} via Pref {pref[-1]}")
             placed = True
             break
 
@@ -135,8 +131,7 @@ for name in to_reassign:
     if not placed:
         preferred_type = row["CompanyPreference"]
         feasible = [
-            p
-            for p in projects
+            p for p in projects
             if p not in not_viable
             and proj_types[p] == preferred_type
             and can_assign(row, p, assignments)
@@ -144,41 +139,27 @@ for name in to_reassign:
         if feasible:
             proj = random.choice(feasible)
             assignments[proj].append(name)
-            print(
-                f"  🔄 {name} reassigned to {proj} via CompanyPreference={preferred_type}"
-            )
+            print(f"  🔄 {name} reassigned to {proj} via CompanyPreference={preferred_type}")
             placed = True
 
-    # If still not placed, fallback anywhere with space
+    # If still not placed, mark as unassigned (no random assignment)
     if not placed:
-        fallback = [
-            p
-            for p in projects
-            if p not in not_viable and can_assign(row, p, assignments)
-        ]
-        if fallback:
-            proj = random.choice(fallback)
-            assignments[proj].append(name)
-            print(f"  🔄 {name} assigned randomly to {proj}")
-        else:
-            print(f"  Could not assign {name}, no space available!")
+        unassigned_students.append(name)
+        print(f"  ⚠️ {name} could not be assigned — added to unassigned list.")
 
 # -----------------------------
 # STEP 4: Final balancing
 # -----------------------------
-leftovers = [
-    s for s in df["Name"] if all(s not in group for group in assignments.values())
-]
+leftovers = [s for s in df["Name"] if all(s not in group for group in assignments.values()) and s not in unassigned_students]
 if leftovers:
     print("\n⚠️ Final balancing, placing leftovers...")
 for name in leftovers:
     row = df[df["Name"] == name].iloc[0]
     preferred_type = row["CompanyPreference"]
 
-    # First try projects of their type
+    # Try projects of their type
     feasible = [
-        p
-        for p in projects
+        p for p in projects
         if p not in not_viable
         and proj_types[p] == preferred_type
         and can_assign(row, p, assignments)
@@ -189,16 +170,9 @@ for name in leftovers:
         print(f"  🔄 {name} placed in {proj} (CompanyPreference={preferred_type})")
         continue
 
-    # Otherwise try any project with space
-    fallback = [
-        p for p in projects if p not in not_viable and can_assign(row, p, assignments)
-    ]
-    if fallback:
-        proj = random.choice(fallback)
-        assignments[proj].append(name)
-        print(f"  🔄 {name} placed in {proj} (Fallback random)")
-    else:
-        print(f" ERROR: Could not place {name}, all projects full!")
+    # Otherwise mark as unassigned (no random fallback)
+    unassigned_students.append(name)
+    print(f"  ⚠️ {name} could not be placed — added to unassigned list.")
 
 # -----------------------------
 # STEP 5: Save results
@@ -212,46 +186,40 @@ for project, members in assignments.items():
             if st[f"Pref{i}"] == project:
                 rank = i
                 break
-        rows.append(
-            {
-                "Project": project,
-                "ProjectType": proj_types[project],
-                "Capacity": proj_capacity[project],
-                "Student": name,
-                "Nationality": st["Nationality"],
-                "CompanyPreference": st["CompanyPreference"],
-                "PreferenceRank": rank if rank else "Fallback",
-            }
-        )
+        rows.append({
+            "Project": project,
+            "ProjectType": proj_types[project],
+            "Capacity": proj_capacity[project],
+            "Student": name,
+            "Nationality": st["Nationality"],
+            "CompanyPreference": st["CompanyPreference"],
+            "PreferenceRank": rank if rank else "Reassigned"
+        })
 
-result_df = (
-    pd.DataFrame(rows).sort_values(["Project", "Student"]).reset_index(drop=True)
-)
+result_df = pd.DataFrame(rows).sort_values(["Project", "Student"]).reset_index(drop=True)
 result_df.to_csv(ASSIGNED_FILE, index=False)
 
 summary = []
 for project, members in assignments.items():
     if members:
         nats = df[df["Name"].isin(members)]["Nationality"].tolist()
-        summary.append(
-            {
-                "Project": project,
-                "ProjectType": proj_types[project],
-                "Capacity": proj_capacity[project],
-                "TeamSize": len(members),
-                "RemainingSpots": proj_capacity[project] - len(members),
-                "Nationalities": ", ".join(nats),
-            }
-        )
+        summary.append({
+            "Project": project,
+            "ProjectType": proj_types[project],
+            "Capacity": proj_capacity[project],
+            "TeamSize": len(members),
+            "RemainingSpots": proj_capacity[project] - len(members),
+            "Nationalities": ", ".join(nats)
+        })
 summary_df = pd.DataFrame(summary).sort_values("Project")
 summary_df.to_csv(SUMMARY_FILE, index=False)
 
 # -----------------------------
 # STEP 6: Fairness Summary
 # -----------------------------
-print("\n Fairness Summary")
+print("\n📊 Fairness Summary")
 pref_counts = Counter(result_df["PreferenceRank"])
-total_students = len(result_df)
+total_students = len(df)  # include unassigned in denominator
 
 fairness_rows = []
 for i in range(1, 6):
@@ -260,33 +228,35 @@ for i in range(1, 6):
     print(f" - Pref{i}: {count} students ({pct:.1f}%)")
     fairness_rows.append({"Category": f"Pref{i}", "Count": count, "Percentage": pct})
 
-fallback_count = pref_counts.get("Fallback", 0)
-print(
-    f" - Fallback: {fallback_count} students ({100*fallback_count/total_students:.1f}%)"
-)
-fairness_rows.append(
-    {
-        "Category": "Fallback",
-        "Count": fallback_count,
-        "Percentage": 100 * fallback_count / total_students,
-    }
-)
+reassigned_count = pref_counts.get("Reassigned", 0)
+print(f" - Reassigned (non-pref): {reassigned_count} students ({100*reassigned_count/total_students:.1f}%)")
+fairness_rows.append({"Category": "Reassigned", "Count": reassigned_count, "Percentage": 100*reassigned_count/total_students})
+
+unassigned_count = len(unassigned_students)
+print(f" - Unassigned: {unassigned_count} students ({100*unassigned_count/total_students:.1f}%)")
+fairness_rows.append({"Category": "Unassigned", "Count": unassigned_count, "Percentage": 100*unassigned_count/total_students})
 
 # Match between CompanyPreference and actual assignment
-match_type = sum(
-    1
-    for _, row in result_df.iterrows()
-    if row["CompanyPreference"] == row["ProjectType"]
-)
-pct_match = 100 * match_type / total_students
-print(f" - Type match (Company/TUe): {match_type}/{total_students} ({pct_match:.1f}%)")
-fairness_rows.append(
-    {"Category": "TypeMatch", "Count": match_type, "Percentage": pct_match}
-)
+match_type = sum(1 for _, row in result_df.iterrows() if row["CompanyPreference"] == row["ProjectType"])
+pct_match = 100 * match_type / max(len(result_df), 1)
+print(f" - Type match (Company/TUe): {match_type}/{len(result_df)} ({pct_match:.1f}%)")
+fairness_rows.append({"Category": "TypeMatch", "Count": match_type, "Percentage": pct_match})
 
 pd.DataFrame(fairness_rows).to_csv(FAIRNESS_FILE, index=False)
 
-print("\n Assignment complete! Results saved.")
-print(f" {ASSIGNED_FILE}")
-print(f" {SUMMARY_FILE}")
-print(f" {FAIRNESS_FILE}")
+# -----------------------------
+# STEP 7: Save unassigned students
+# -----------------------------
+if unassigned_students:
+    print("\n⚠️ The following students could not be placed automatically:")
+    for s in unassigned_students:
+        print(f"   - {s}")
+    pd.DataFrame({"UnassignedStudent": unassigned_students}).to_csv(UNASSIGNED_FILE, index=False)
+    print(f"\n📂 Unassigned students saved to {UNASSIGNED_FILE}")
+else:
+    print("\n✅ All students successfully placed.")
+
+print("\n✅ Assignment complete! Results saved.")
+print(f"📂 {ASSIGNED_FILE}")
+print(f"📂 {SUMMARY_FILE}")
+print(f"📂 {FAIRNESS_FILE}")
