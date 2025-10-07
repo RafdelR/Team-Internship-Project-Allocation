@@ -1,21 +1,21 @@
-Name,Nationality,Background,TimeSlots,Pref1,Pref2,Pref3,Pref4,Pref5,CompanyPreference
-Alice,NL,Electrical Engineering,A,B,E,Project1,Project2,Project3,Project4,Project5,TUe
-Bob,DE,Mechanical Engineering,B,C,E,Project2,Project1,Project3,Project5,Project6,Company
-Carlos,ES,Computer Science,A,C,E,Project3,Project1,Project2,Project4,Project7,Company
-Diego,PT,Electrical Engineering,A,B,E,Project1,Project3,Project2,Project4,Project8,TUe
-Emma,FR,Industrial Design,B,D,E,Project4,Project2,Project1,Project3,Project5,TUe
-Liam,UK,Management,A,C,E,Project5,Project4,Project2,Project6,Project1,Company
-Sofia,IT,Computer Science,A,B,C,Project2,Project3,Project4,Project1,Project8,TUe
-Marco,BR,Mechanical Engineering,A,C,E,Project3,Project5,Project7,Project1,Project2,Company
-Yuki,JP,Robotics,A,D,E,Project1,Project4,Project6,Project3,Project2,Company
-Kenji,JP,Electrical Engineering,B,C,E,Project4,Project1,Project2,Project8,Project6,TUe
-Hannah,NL,Industrial Design,A,C,E,Project5,Project2,Project4,Project7,Project3,Company
-Noah,NL,Computer Science,A,B,D,Project2,Project6,Project3,Project5,Project1,TUe
-Marta,ES,Management,B,C,E,Project1,Project5,Project7,Project2,Project4,Company
-Oliver,SE,Electrical Engineering,A,B,E,Project3,Project4,Project1,Project6,Project8,TUe
-Lucas,MX,Mechanical Engineering,A,D,E,Project2,Project1,Project6,Project4,Project5,Company
-Zara,IN,Industrial Design,B,C,E,Project4,Project5,Project2,Project1,Project7,TUe
-Elena,IT,Computer Science,A,B,E,Project5,Project3,Project1,Project7,Project8,Company
-Raj,IN,Electrical Engineering,B,C,E,Project1,Project6,Project3,Project4,Project5,TUe
-Mina,EG,Robotics,A,C,E,Project2,Project4,Project8,Project5,Project1,Company
-Jonas,DE,Management,A,B,E,Project3,Project1,Project2,Project6,Project4,TUe
+Name,Nationality,Background,Pref1,Pref2,Pref3,Pref4,Pref5,CompanyPreference
+Alice,NL,Electrical Engineering,Project1,Project2,Project3,Project4,Project5,TUe
+Bob,DE,Mechanical Engineering,Project2,Project1,Project3,Project5,Project6,Company
+Carlos,ES,Computer Science,Project3,Project1,Project2,Project4,Project7,Company
+Diego,PT,Electrical Engineering,Project1,Project3,Project2,Project4,Project8,TUe
+Emma,FR,Industrial Design,Project4,Project2,Project1,Project3,Project5,TUe
+Liam,UK,Management,Project5,Project4,Project2,Project6,Project1,Company
+Sofia,IT,Computer Science,Project2,Project3,Project4,Project1,Project8,TUe
+Marco,BR,Mechanical Engineering,Project3,Project5,Project7,Project1,Project2,Company
+Yuki,JP,Robotics,Project1,Project4,Project6,Project3,Project2,Company
+Kenji,JP,Electrical Engineering,Project4,Project1,Project2,Project8,Project6,TUe
+Hannah,NL,Industrial Design,Project5,Project2,Project4,Project7,Project3,Company
+Noah,NL,Computer Science,Project2,Project6,Project3,Project5,Project1,TUe
+Marta,ES,Management,Project1,Project5,Project7,Project2,Project4,Company
+Oliver,SE,Electrical Engineering,Project3,Project4,Project1,Project6,Project8,TUe
+Lucas,MX,Mechanical Engineering,Project2,Project1,Project6,Project4,Project5,Company
+Zara,IN,Industrial Design,Project4,Project5,Project2,Project1,Project7,TUe
+Elena,IT,Computer Science,Project5,Project3,Project1,Project7,Project8,Company
+Raj,IN,Electrical Engineering,Project1,Project6,Project3,Project4,Project5,TUe
+Mina,EG,Robotics,Project2,Project4,Project8,Project5,Project1,Company
+Jonas,DE,Management,Project3,Project1,Project2,Project6,Project4,TUe
