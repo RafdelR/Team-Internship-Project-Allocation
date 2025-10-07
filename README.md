@@ -1,20 +1,22 @@
 # 🧑‍🎓 Project Assignment Algorithm
 
-A transparent, reproducible algorithm for assigning students to projects based on **ranked preferences**, **nationality diversity**, and **organization type preferences** (**Company** vs **TU/e**).  
-It avoids “lonely” teams, prefers full or semi‑full teams, and publishes a **fairness report**.
+A transparent, reproducible algorithm for assigning students to projects based on **ranked preferences**, **nationality diversity**, **academic background**, and **shared availability** (time slots **A–E**).  
+It avoids “lonely” teams, ensures realistic meeting compatibility, and produces a **fairness report**.
 
-> **Why this repo?** After project pitches, students submit a short form listing their **top 5 projects**, their **nationality**, and a **type preference** (Company or TU/e). This script forms teams using clear rules that everybody can audit and re-run (same seed → same result).
+> **Why this repo?**  
+> After project pitches, students submit a short form listing their **top 5 projects**, **nationality**, **study background**, **availability slots**, and **organization preference** (Company or TU/e).  
+> This algorithm automatically forms balanced, compatible teams under transparent and reproducible rules.
 
 ---
 
 ## 🚀 Quick Start
 
 ```bash
-# 1) Put these files in the repo root:
+# 1) Place these files in the same folder:
 #    - assign_students.py
 #    - student_preferences.csv
 #    - projects.csv
-#
+
 # 2) Run the script
 python assign_students.py
 
@@ -46,83 +48,89 @@ python assign_students.py
 ## 🧾 CSV Schemas
 
 ### `student_preferences.csv`
-| Column              | Type   | Required | Notes                                                                 |
-|---------------------|--------|----------|-----------------------------------------------------------------------|
-| `Name`              | string | ✓        | Unique student identifier (name or id)                                |
-| `Nationality`       | string | ✓        | Used for diversity (max 2 per nationality per project)                |
-| `Pref1`..`Pref5`    | string | ✓        | Ranked project ids, e.g., `Project4`                                  |
-| `CompanyPreference` | string | ✓        | Either `Company` or `TUe` (used as fallback type)                     |
 
-**Rules**
-- Preferences must match valid project ids in `projects.csv` (invalid names are ignored gracefully).
-- CompanyPreference is used **only** when none of the 5 preferences can be fulfilled.
+| Column              | Type   | Required | Notes |
+|---------------------|--------|----------|--------|
+| `Name`              | string | ✓ | Unique student identifier (name or ID). |
+| `Nationality`       | string | ✓ | Used for diversity (≤2 per nationality per project). |
+| `Background`        | string | ✓ | Academic background (≤2 per background per project). |
+| `TimeSlots`         | string | ✓ | Availability slots, e.g. `"A,B,E"` (must share ≥2 slots collectively per team). |
+| `Pref1`..`Pref5`    | string | ✓ | Ranked project IDs, e.g. `Project4`. |
+| `CompanyPreference` | string | ✓ | Either `Company` or `TUe` (fallback type). |
+
+**Time Slot Rules:**
+- Possible values: `A`, `B`, `C`, `D`, `E` (each representing a time block).  
+- Students list 3 they are free for team meetings, separated by commas.  
+- All team members must share **at least 2 common slots collectively**.
 
 ---
 
 ### `projects.csv`
-| Column     | Type    | Required | Notes                                             |
-|------------|---------|----------|---------------------------------------------------|
-| `Project`  | string  | ✓        | Unique project id, e.g., `Project7`              |
-| `Type`     | string  | ✓        | Either `Company` or `TUe`                        |
-| `Capacity` | integer | ✓        | Maximum number of students in this project       |
 
-**Rules**
-- Total capacity must be **≥** total number of students, otherwise the script aborts.
-- Projects that attract fewer than half their capacity are considered **not viable** and their students are reassigned.
+| Column     | Type    | Required | Notes |
+|------------|---------|----------|--------|
+| `Project`  | string  | ✓ | Unique project ID, e.g. `Project7`. |
+| `Type`     | string  | ✓ | Either `Company` or `TUe`. |
+| `Capacity` | integer | ✓ | Maximum number of students in the project. |
 
 ---
 
 ## ⚙️ Configuration
 
-- `SEED = 42` — ensures reproducibility.
-- **Nationality limit:** max 2 students per nationality per project (set in `can_assign()`).
-- **Undersubscription threshold:** projects with fewer than **half their capacity** filled are dropped.
+- `SEED = 42` — ensures reproducibility.  
+- **Max per nationality:** 2  
+- **Max per background:** 2  
+- **Minimum shared time slots:** 2 (across all team members).  
+- **Undersubscription rule:** Projects with fewer than half their capacity are dropped and students reassigned.
 
 ---
 
-## 🧠 Algorithm (Greedy + Company/TU/e-aware + Unassignment Logic)
+## 🧠 Algorithm Overview
 
 ### Goals
-1. **Honor preferences** (Pref1 → Pref5) as much as possible.  
-2. **Respect capacity** (no overfilling).  
-3. **Maintain diversity** (≤2 per nationality per project).  
-4. **Avoid “ghost projects”** (drop low-interest ones).  
-5. **Respect type preferences** (Company vs TU/e).  
-6. **Do not assign anyone randomly** — if a student can’t be placed, they are added to an *unassigned list* for manual review.
+1. Honor ranked preferences as much as possible.  
+2. Respect project capacity.  
+3. Maintain nationality & background diversity.  
+4. Guarantee at least two shared time slots collectively per team.  
+5. Avoid underfilled (“ghost”) projects.  
+6. Respect type preference (Company vs TU/e).  
+7. Never assign randomly — unplaceable students are exported for review.
 
 ---
 
 ### Step-by-Step
 
 1. **Initial Preference Assignment**  
-   - Students are shuffled (for fairness) and placed into their highest available preference that respects nationality and capacity.
+   - Students are shuffled for fairness.  
+   - Each is placed into their highest available preference that satisfies:
+     - Capacity not full  
+     - ≤2 same nationalities  
+     - ≤2 same backgrounds  
+     - ≥2 shared time slots with all current members  
 
 2. **Drop Undersubscribed Projects**  
-   - Projects with fewer than half their capacity filled are removed.
-   - Students in those projects go back into the reassignment pool.
+   - Projects with fewer than half their capacity filled are removed.  
+   - Their members are re-entered into the assignment pool.
 
 3. **Reassign Students**  
-   - Each student is reassigned by priority:
-     1. Try another valid preference (among viable projects).
-     2. Try a project matching their `CompanyPreference` type.
-     3. If neither works, they are **added to the unassigned list** (no random fallback).
+   - Reassign dropped students using:
+     - Next valid preferences (only viable projects).  
+     - Fallback projects matching their `CompanyPreference`.  
+     - If no compatible project exists → student becomes unassigned.
 
 4. **Final Balancing**  
-   - Remaining unplaced students are again checked against projects of their preferred type.
-   - If still none fits → added to unassigned list.
+   - Any remaining unassigned students are checked one last time for fitting projects (type-aware).  
+   - If none fit, they are written to `unassigned_students.csv`.
 
 5. **Outputs & Fairness Summary**  
-   - `assigned_teams.csv` → final placements.  
-   - `team_nationality_summary.csv` → diversity overview.  
-   - `fairness_summary.csv` → stats on how fair the matching was.  
-   - `unassigned_students.csv` → list of students who couldn’t be placed automatically.
+   - Generates detailed CSVs and a console report showing preference satisfaction, unassigned count, and diversity metrics.
 
 ---
 
 ## 📊 Fairness Summary (example)
 
 ```
-📊 Fairness Summary
+Fairness Summary
  - Pref1: 8 students (40.0%)
  - Pref2: 5 students (25.0%)
  - Pref3: 3 students (15.0%)
@@ -133,80 +141,72 @@ python assign_students.py
  - Type match (Company/TUe): 18/20 (90.0%)
 ```
 
-This fairness summary is printed and saved to `fairness_summary.csv`.
+---
+
+## 🧾 Example of `TimeSlots` and `unassigned_students.csv`
+
+`student_preferences.csv` example:
+```csv
+Name,Nationality,Background,TimeSlots,Pref1,Pref2,Pref3,Pref4,Pref5,CompanyPreference
+Alice,NL,Electrical Engineering,A,B,E,Project1,Project2,Project3,Project4,Project5,TUe
+Bob,DE,Mechanical Engineering,B,C,E,Project2,Project1,Project3,Project5,Project6,Company
+...
+```
+
+`unassigned_students.csv` output:
+```csv
+UnassignedStudent
+Carlos
+Emma
+```
+These students could not be assigned without violating the nationality, background, or time-slot constraints.
 
 ---
 
-## 🧾 Example of `unassigned_students.csv`
+## 🧱 Edge Cases & Handling
 
-```csv
-UnassignedStudent
-Alice
-Jonas
-```
-
-These students did not fit in any project given capacity, nationality, or type constraints and should be manually reviewed.
+1. **Lonely projects:** dropped if fewer than half their capacity filled.  
+2. **Nationality or background overload:** no more than 2 of either.  
+3. **Time-slot conflicts:** project rejected if collective overlap <2 slots.  
+4. **Invalid preferences:** ignored safely.  
+5. **Type fallback:** fallback tries same-type projects first.  
+6. **No random placement:** unassign incompatible students.  
 
 ---
 
 ## 🪪 Reproducibility
 
-- Deterministic (fixed random seed).  
-- Identical CSV inputs → identical team outputs.  
-- Allows transparent reruns and auditability.
-
----
-
-## 🧱 Edge Cases & Fixes
-
-1. **Lonely students**  
-   - Projects under half capacity are dropped; students reassigned or unassigned.
-
-2. **Oversubscribed projects**  
-   - Overflow handled by next preferences or type-based fallback.
-
-3. **Nationality limit**  
-   - Hard cap of 2 per nationality per team.
-
-4. **Invalid preferences**  
-   - Ignored automatically; no crash.
-
-5. **Type respect**  
-   - When possible, fallback tries projects of same type first.
-
-6. **No random placements**  
-   - If none of the above rules apply → student is marked *unassigned* and output separately.
+- Fixed seed ensures identical outputs for identical inputs.  
+- Fully deterministic and auditable for transparency.  
 
 ---
 
 ## ❓ FAQ
 
-**Q: What happens if a student can’t be placed anywhere?**  
-A: They appear in `unassigned_students.csv` and are excluded from any team. This ensures transparency and avoids arbitrary placements.
+**Q: What if a student can't be placed anywhere?**  
+They appear in `unassigned_students.csv` and are not forced into a random project.
 
-**Q: Why not guarantee every project is full?**  
-A: This script prioritizes clarity over global optimization. You can extend it later using ILP or OR-Tools for exact balancing.
+**Q: Can I adjust the time-slot rule?**  
+Yes, edit the `can_assign()` function — change the number of required shared slots or accepted values (A–E).
 
-**Q: Can I change the “max 2 per nationality” rule?**  
-A: Yes, edit the `can_assign()` function.
-
-**Q: Is the randomization fair?**  
-A: Yes — it’s deterministic (fixed seed). Rerunning with the same inputs yields identical results.
+**Q: Are overlapping slots checked collectively?**  
+Yes — all team members (existing + new) must have ≥2 shared slots collectively.
 
 ---
 
 ## 🧰 Contributing
 
-PRs are welcome!  
+PRs are welcome.  
 Please:
-1. Open an issue before large changes.  
-2. Include test CSVs if possible.  
-3. Keep logging clear and reproducible.
+1. Open an issue before major changes.  
+2. Include test CSVs when submitting improvements.  
+3. Keep print logs readable and transparent.
 
 ---
 
 ## 🗓️ Changelog
 
-- **v1.2.0** — *Removed random fallback entirely:* students who cannot be placed are now output to `unassigned_students.csv` instead of being randomly assigned.  
+- **v1.3.0** — Added *TimeSlots* availability rule: teams must share at least 2 common time slots collectively.  
+- **v1.2.0** — Removed random fallback; unassign incompatible students.  
 - **v1.1.0** — Added fairness summary and type-aware fallback logic.  
-- **v1.0.0** — Initial public release: preference assignment with nationality & type balance, fairness reporting, and anti-ghost-team logic.
+- **v1.0.0** — Initial public release: preference-based assignment with diversity and capacity logic.
