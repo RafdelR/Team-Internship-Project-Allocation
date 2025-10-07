@@ -1,6 +1,6 @@
-Project,ProjectType,Capacity,TeamSize,RemainingSpots,Nationalities
-Project1,Company,4,4,0,"NL, JP, ES, IN"
-Project2,TUe,4,4,0,"DE, IT, MX, EG"
-Project3,Company,3,3,0,"ES, SE, DE"
-Project4,TUe,4,4,0,"PT, FR, JP, IN"
-Project5,Company,5,5,0,"UK, BR, NL, NL, IT"
+Project,ProjectType,Capacity,TeamSize,RemainingSpots,Nationalities,Backgrounds,TimeSlots
+Project10,Company,5,1,4,"B, A, A","C, C, D","E, E, E"
+Project3,Company,3,1,2,"A, A, A, A","C, B, B, B","E, C, D, E"
+Project7,Company,4,1,3,"A, B, A","C, C, B","E, E, E"
+Project8,TUe,4,1,3,"B, A, B","D, C, C","E, E, E"
+Project9,TUe,5,1,4,"A, A, B, A, B","B, B, C, B, C","E, E, E, E, E"
